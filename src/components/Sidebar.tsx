@@ -50,19 +50,23 @@ export default function Sidebar({ currentView, setCurrentView }: SidebarProps) {
 
       <div className="mt-auto px-2 pt-4 border-t border-gray-100 flex flex-col gap-4">
         <div className="flex items-center justify-between group">
-           <div className="flex items-center gap-3 py-2 rounded-xl">
+          <div className="flex items-center gap-3 py-2 rounded-xl">
             <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200 group-hover:border-primary/30 transition-colors">
               <User className="w-4 h-4 text-gray-400 group-hover:text-primary transition-colors" />
             </div>
-            <span className="text-[10px] font-black text-gray-600 font-mono tracking-tighter truncate max-w-[100px]">{user?.phone}</span>
+            <span className="text-[10px] font-black text-gray-600 font-mono tracking-tighter truncate max-w-[100px]">
+              {user ? user.phone : '未登录 (游客)'}
+            </span>
           </div>
-          <button 
-            onClick={() => confirm('确定要推出登陆吗？') && logout()}
-            className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-            title="退出登录"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+          {user && (
+            <button 
+              onClick={() => confirm('确定要退出登录吗？') && logout()}
+              className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+              title="退出登录"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         <div className="pb-4">

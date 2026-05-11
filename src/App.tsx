@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { 
   Bell,
   User,
+  X,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './contexts/AuthContext';
 import { useTimer } from './contexts/TimerContext';
 import { Task, PomodoroSession, ViewType } from './types';
@@ -22,6 +24,7 @@ export default function App() {
   const [sessions, setSessions] = useState<PomodoroSession[]>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // Sync with backend when logged in
   useEffect(() => {
@@ -29,12 +32,17 @@ export default function App() {
       const fetchData = async () => {
         setIsLoading(true);
         try {
-          const [tasksRes, sessionsRes] = await Promise.all([
+          const [tasksRes, sessionsRes, settingsRes] = await Promise.all([
             fetch('/api/tasks'),
-            fetch('/api/sessions')
+            fetch('/api/sessions'),
+            fetch('/api/settings')
           ]);
           if (tasksRes.ok) setTasks(await tasksRes.json());
           if (sessionsRes.ok) setSessions(await sessionsRes.json());
+          if (settingsRes.ok) {
+            const remoteSettings = await settingsRes.json();
+            updateSettings(remoteSettings);
+          }
         } catch (err) {
           console.error('Failed to fetch user data');
         } finally {
@@ -42,12 +50,31 @@ export default function App() {
         }
       };
       fetchData();
+    } else {
+      // Load from localStorage for guest
+      const savedTasks = localStorage.getItem('pomodoro-guest-tasks');
+      const savedSessions = localStorage.getItem('pomodoro-guest-sessions');
+      if (savedTasks) setTasks(JSON.parse(savedTasks));
+      if (savedSessions) setSessions(JSON.parse(savedSessions));
+      setIsLoading(false);
     }
   }, [user]);
 
+  // Persist guest data
+  useEffect(() => {
+    if (!user) {
+      localStorage.setItem('pomodoro-guest-tasks', JSON.stringify(tasks));
+      localStorage.setItem('pomodoro-guest-sessions', JSON.stringify(sessions));
+    }
+  }, [tasks, sessions, user]);
+
   // Actions with Backend Sync
   const addTask = async (title: string, expectedPomodoros: number = 1) => {
-    const newTask: Omit<Task, 'id'> = {
+    if (!user && !showLoginModal) {
+      setShowLoginModal(true);
+    }
+
+    const newTaskData = {
       title,
       createdAt: new Date().toISOString(),
       completedAt: null,
@@ -57,19 +84,25 @@ export default function App() {
       order: tasks.length,
     };
 
-    try {
-      const res = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newTask)
-      });
-      const savedTask = await res.json();
-      setTasks(prev => [savedTask, ...prev]);
-      return savedTask.id;
-    } catch (err) {
-      console.error('Failed to save task');
-      return '';
+    if (user) {
+      try {
+        const res = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newTaskData)
+        });
+        const savedTask = await res.json();
+        setTasks(prev => [savedTask, ...prev]);
+        return savedTask.id;
+      } catch (err) {
+        console.error('Failed to save task');
+      }
     }
+    
+    // Guest fallback
+    const guestTask: Task = { ...newTaskData, id: crypto.randomUUID() };
+    setTasks(prev => [guestTask, ...prev]);
+    return guestTask.id;
   };
 
   const updateTaskProgress = async (id: string, progress: number) => {
@@ -134,14 +167,40 @@ export default function App() {
     );
   }
 
-  if (!user) {
-    return <Login />;
-  }
-
   return (
     <div className="flex h-screen bg-background text-on-surface overflow-hidden selection:bg-primary selection:text-on-primary">
-      {/* Sidebar */}
       <Sidebar currentView={currentView} setCurrentView={setCurrentView} />
+
+      {/* Login Modal */}
+      <AnimatePresence>
+        {showLoginModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowLoginModal(false)}
+              className="absolute inset-0 bg-gray-900/40 backdrop-blur-md" 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-md relative z-10"
+            >
+              <div className="absolute top-4 right-4 z-20">
+                 <button 
+                  onClick={() => setShowLoginModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
+                 >
+                   <X className="w-5 h-5" />
+                 </button>
+              </div>
+              <Login isModal onSkip={() => setShowLoginModal(false)} />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Main Content */}
       <main className="flex-1 ml-64 flex flex-col relative h-screen overflow-hidden p-6">
