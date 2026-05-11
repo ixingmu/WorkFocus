@@ -1,72 +1,53 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { 
-  Timer, 
-  ListTodo, 
-  BarChart3, 
-  Settings as SettingsIcon,
   Bell,
   User,
-  Focus,
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
-import { Howl } from 'howler';
-import confetti from 'canvas-confetti';
-
-import { AppSettings, Task, PomodoroSession, ViewType } from './types';
+import { useAuth } from './contexts/AuthContext';
+import { useTimer } from './contexts/TimerContext';
+import { Task, PomodoroSession, ViewType } from './types';
 import Sidebar from './components/Sidebar';
 import TimerView from './components/Timer';
 import TaskList from './components/TaskList';
 import Statistics from './components/Statistics';
 import SettingsView from './components/Settings';
-
-const DEFAULT_SETTINGS: AppSettings = {
-  focusDuration: 25,
-  shortBreakDuration: 5,
-  longBreakDuration: 15,
-  autoStartBreaks: true,
-  soundEnabled: true,
-  notificationsEnabled: true,
-  tickSoundEnabled: false,
-  alarmSoundId: 'classic',
-};
+import Login from './components/Login';
+import AdminView from './components/Admin';
 
 export default function App() {
+  const { user, loading: authLoading } = useAuth();
+  const { settings, updateSettings } = useTimer();
   const [currentView, setCurrentView] = useState<ViewType>('timer');
-  const [settings, setSettings] = useState<AppSettings>(() => {
-    const saved = localStorage.getItem('work-focus-settings');
-    return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
-  });
-  
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    const saved = localStorage.getItem('work-focus-tasks');
-    return saved ? JSON.parse(saved) : [];
-  });
-  
-  const [sessions, setSessions] = useState<PomodoroSession[]>(() => {
-    const saved = localStorage.getItem('work-focus-sessions');
-    return saved ? JSON.parse(saved) : [];
-  });
-
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [sessions, setSessions] = useState<PomodoroSession[]>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Persistence
+  // Sync with backend when logged in
   useEffect(() => {
-    localStorage.setItem('work-focus-settings', JSON.stringify(settings));
-  }, [settings]);
+    if (user) {
+      const fetchData = async () => {
+        setIsLoading(true);
+        try {
+          const [tasksRes, sessionsRes] = await Promise.all([
+            fetch('/api/tasks'),
+            fetch('/api/sessions')
+          ]);
+          if (tasksRes.ok) setTasks(await tasksRes.json());
+          if (sessionsRes.ok) setSessions(await sessionsRes.json());
+        } catch (err) {
+          console.error('Failed to fetch user data');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchData();
+    }
+  }, [user]);
 
-  useEffect(() => {
-    localStorage.setItem('work-focus-tasks', JSON.stringify(tasks));
-  }, [tasks]);
-
-  useEffect(() => {
-    localStorage.setItem('work-focus-sessions', JSON.stringify(sessions));
-  }, [sessions]);
-
-  // Actions
-  const addTask = (title: string, expectedPomodoros: number = 1) => {
-    const newTask: Task = {
-      id: crypto.randomUUID(),
+  // Actions with Backend Sync
+  const addTask = async (title: string, expectedPomodoros: number = 1) => {
+    const newTask: Omit<Task, 'id'> = {
       title,
       createdAt: new Date().toISOString(),
       completedAt: null,
@@ -75,39 +56,87 @@ export default function App() {
       progress: 0,
       order: tasks.length,
     };
-    setTasks(prev => [newTask, ...prev]);
-    return newTask.id;
-  };
 
-  const updateTaskProgress = (id: string, progress: number) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, progress: Math.min(100, progress) } : t));
-  };
-
-  const updateTasksOrder = (newTasks: Task[]) => {
-    setTasks(newTasks);
-  };
-
-  const toggleTaskCompletion = (id: string) => {
-    setTasks(prev => prev.map(t => t.id === id ? { 
-      ...t, 
-      completedAt: t.completedAt ? null : new Date().toISOString() 
-    } : t));
-  };
-
-  const addPomodoroToTask = (id: string) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, pomodoros: t.pomodoros + 1 } : t));
-  };
-
-  const recordSession = (session: Omit<PomodoroSession, 'id'>) => {
-    const newSession: PomodoroSession = {
-      ...session,
-      id: crypto.randomUUID(),
-    };
-    setSessions(prev => [newSession, ...prev]);
-    if (session.type === 'focus' && session.taskId) {
-      addPomodoroToTask(session.taskId);
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTask)
+      });
+      const savedTask = await res.json();
+      setTasks(prev => [savedTask, ...prev]);
+      return savedTask.id;
+    } catch (err) {
+      console.error('Failed to save task');
+      return '';
     }
   };
+
+  const updateTaskProgress = async (id: string, progress: number) => {
+    const newProgress = Math.min(100, progress);
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, progress: newProgress } : t));
+    
+    try {
+      await fetch(`/api/tasks/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ progress: newProgress })
+      });
+    } catch (err) {
+      console.error('Failed to update progress');
+    }
+  };
+
+  const toggleTaskCompletion = async (id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+
+    const completedAt = task.completedAt ? null : new Date().toISOString();
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, completedAt } : t));
+
+    try {
+      await fetch(`/api/tasks/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completedAt })
+      });
+    } catch (err) {
+      console.error('Failed to toggle completion');
+    }
+  };
+
+  const recordSession = async (session: Omit<PomodoroSession, 'id'>) => {
+    try {
+      const res = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(session)
+      });
+      const savedSession = await res.json();
+      setSessions(prev => [savedSession, ...prev]);
+      
+      // Update task pomodoro count if it was a focus session
+      if (session.type === 'focus' && session.taskId) {
+        setTasks(prev => prev.map(t => 
+          t.id === session.taskId ? { ...t, pomodoros: t.pomodoros + 1 } : t
+        ));
+      }
+    } catch (err) {
+      console.error('Failed to record session');
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-gray-50 text-gray-400 font-bold uppercase tracking-widest text-xs">
+        Loading System Context...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
 
   return (
     <div className="flex h-screen bg-background text-on-surface overflow-hidden selection:bg-primary selection:text-on-primary">
@@ -116,10 +145,8 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1 ml-64 flex flex-col relative h-screen overflow-hidden p-6">
-        {/* Ambient background glow - subtle blue for Bento */}
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[100px] pointer-events-none z-0" />
         
-        {/* Top App Bar */}
         <header className="h-14 mb-6 flex justify-between items-end relative z-10 shrink-0">
           <div>
             <h2 className="text-3xl font-bold tracking-tight text-gray-900">
@@ -127,12 +154,13 @@ export default function App() {
               {currentView === 'tasks' && '我的任务 · Tasks'}
               {currentView === 'statistics' && '每周进展 · Stats'}
               {currentView === 'settings' && '系统设置 · Settings'}
+              {currentView === 'admin' && '后台管理 · Admin'}
             </h2>
             <p className="text-gray-500 text-sm mt-1">Windows 桌面增强版 / 高效任务管理系统</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right mr-4 hidden md:block">
-              <div className="text-[10px] font-mono bg-gray-200 px-2 py-0.5 rounded text-gray-600">MEM: 12.4MB / CPU: 0.2%</div>
+              <div className="text-[10px] font-mono bg-gray-200 px-2 py-0.5 rounded text-gray-600">CLIENT: CONNECTED / DB: READY</div>
             </div>
             <button className="p-2 rounded-xl hover:bg-white shadow-sm border border-transparent hover:border-gray-200 transition-all text-on-surface-variant hover:text-primary">
               <Bell className="w-5 h-5" />
@@ -143,11 +171,18 @@ export default function App() {
           </div>
         </header>
 
-        {/* View Content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
+          {isLoading && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/20 backdrop-blur-sm rounded-[2rem]">
+               <div className="flex items-center gap-3 bg-white px-6 py-3 rounded-2xl shadow-xl border border-gray-100">
+                  <div className="w-4 h-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+                  <span className="text-xs font-black text-gray-900 uppercase tracking-widest">同步中...</span>
+               </div>
+            </div>
+          )}
+          
           {currentView === 'timer' && (
             <TimerView 
-              settings={settings} 
               onSessionComplete={recordSession}
               tasks={tasks}
               activeTaskId={activeTaskId}
@@ -162,7 +197,7 @@ export default function App() {
               onAddTask={addTask} 
               onToggleTask={toggleTaskCompletion}
               sessions={sessions}
-              onUpdateOrder={updateTasksOrder}
+              onUpdateOrder={setTasks}
               onStartTask={(id) => {
                 setActiveTaskId(id);
                 setCurrentView('timer');
@@ -173,7 +208,10 @@ export default function App() {
             <Statistics sessions={sessions} />
           )}
           {currentView === 'settings' && (
-            <SettingsView settings={settings} onUpdateSettings={setSettings} />
+            <SettingsView settings={settings} onUpdateSettings={updateSettings} />
+          )}
+          {currentView === 'admin' && (
+            <AdminView />
           )}
         </div>
       </main>

@@ -1,32 +1,21 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Play, Pause, SkipForward, CheckCircle2, Sliders, X, Timer as TimerIcon, RotateCcw } from 'lucide-react';
-import { Howl } from 'howler';
-import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatTime } from '../lib/utils';
-import { AppSettings, Task, PomodoroSession } from '../types';
+import { Task, PomodoroSession } from '../types';
+import { useTimer } from '../contexts/TimerContext';
+import { useAuth } from '../contexts/AuthContext';
 
 interface TimerViewProps {
-  settings: AppSettings;
   tasks: Task[];
   activeTaskId: string | null;
   setActiveTaskId: (id: string | null) => void;
   onSessionComplete: (session: Omit<PomodoroSession, 'id'>) => void;
-  addTask: (title: string, expected?: number) => string;
+  addTask: (title: string, expected?: number) => Promise<string> | string;
   onUpdateProgress: (id: string, progress: number) => void;
 }
 
-type Mode = 'focus' | 'short-break' | 'long-break';
-
-const ALARM_SOUNDS = {
-  classic: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
-  digital: 'https://assets.mixkit.co/active_storage/sfx/1003/1003-preview.mp3',
-  soft: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
-  zen: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
-};
-
 export default function TimerView({ 
-  settings, 
   tasks, 
   activeTaskId, 
   setActiveTaskId, 
@@ -34,97 +23,17 @@ export default function TimerView({
   addTask,
   onUpdateProgress
 }: TimerViewProps) {
-  const [mode, setMode] = useState<Mode>('focus');
-  const [timeLeft, setTimeLeft] = useState(settings.focusDuration * 60);
-  const [isActive, setIsActive] = useState(false);
+  const { 
+    timeLeft, progress: timerProgress, isActive, mode, settings,
+    startTimer, pauseTimer, resetTimer, skipSession
+  } = useTimer();
+  const { user } = useAuth();
+  
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
   const [sessionProgress, setSessionProgress] = useState(10);
   
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const startTimestampRef = useRef<number | null>(null);
-
   const activeTask = tasks.find(t => t.id === activeTaskId);
-
-  // Sound effects
-  const alarmSound = useRef<Howl | null>(null);
-  const tickSound = useRef<Howl | null>(null);
-
-  useEffect(() => {
-    alarmSound.current = new Howl({
-      src: [(ALARM_SOUNDS as any)[settings.alarmSoundId] || ALARM_SOUNDS.classic],
-      volume: 0.5,
-      html5: true
-    });
-
-    tickSound.current = new Howl({
-      src: ['https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3'],
-      volume: 0.05,
-      loop: true,
-      html5: true
-    });
-
-    return () => {
-      alarmSound.current?.unload();
-      tickSound.current?.unload();
-    };
-  }, [settings.alarmSoundId]);
-
-  // Sync timeLeft when durations change in settings
-  const lastModeRef = useRef<Mode>(mode);
-  useEffect(() => {
-    // Only reset if the mode changed OR if the settings changed while the timer was NOT active and at the start
-    const isAtStart = timeLeft === (lastModeRef.current === 'focus' ? settings.focusDuration * 60 : (lastModeRef.current === 'short-break' ? settings.shortBreakDuration * 60 : settings.longBreakDuration * 60));
-    
-    if (lastModeRef.current !== mode || (!isActive && isAtStart)) {
-      if (mode === 'focus') setTimeLeft(settings.focusDuration * 60);
-      else if (mode === 'short-break') setTimeLeft(settings.shortBreakDuration * 60);
-      else if (mode === 'long-break') setTimeLeft(settings.longBreakDuration * 60);
-      lastModeRef.current = mode;
-    }
-  }, [settings.focusDuration, settings.shortBreakDuration, settings.longBreakDuration, mode, isActive]);
-
-  const switchMode = useCallback((newMode: Mode) => {
-    setIsActive(false);
-    setMode(newMode);
-    if (newMode === 'focus') setTimeLeft(settings.focusDuration * 60);
-    else if (newMode === 'short-break') setTimeLeft(settings.shortBreakDuration * 60);
-    else if (newMode === 'long-break') setTimeLeft(settings.longBreakDuration * 60);
-  }, [settings]);
-
-  const completeSession = useCallback(() => {
-    if (settings.soundEnabled) alarmSound.current?.play();
-    
-    if (settings.notificationsEnabled && Notification.permission === 'granted') {
-      new Notification('专注任务完成', {
-        body: mode === 'focus' ? '休息一下吧！' : '该开始专注了！',
-        icon: '/logo.png'
-      });
-    }
-
-    if (mode === 'focus') {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#2563eb', '#10b981']
-      });
-      setShowFeedback(true);
-      setSessionProgress(10);
-    } else {
-      onSessionComplete({
-        taskId: 'rest',
-        taskTitle: mode === 'short-break' ? '短休' : '长休',
-        type: mode,
-        startTime: new Date(startTimestampRef.current || Date.now()).toISOString(),
-        endTime: new Date().toISOString(),
-        durationMinutes: mode === 'short-break' ? settings.shortBreakDuration : settings.longBreakDuration
-      });
-      switchMode('focus');
-    }
-    
-    setIsActive(false);
-  }, [mode, settings, switchMode, onSessionComplete]);
 
   const handleFeedbackSubmit = () => {
     if (activeTaskId) {
@@ -135,64 +44,25 @@ export default function TimerView({
       taskId: activeTaskId || 'unnamed',
       taskTitle: activeTask?.title || '未命名任务',
       type: mode,
-      startTime: new Date(startTimestampRef.current || Date.now()).toISOString(),
+      startTime: new Date(Date.now() - settings.focusDuration * 60000).toISOString(),
       endTime: new Date().toISOString(),
       durationMinutes: settings.focusDuration,
       progressIncrement: sessionProgress
     });
 
     setShowFeedback(false);
-    if (settings.autoStartBreaks) {
-      switchMode('short-break');
-    } else {
-      switchMode('focus');
-    }
   };
 
-  useEffect(() => {
-    if (isActive && timeLeft > 0) {
-      const interval = setInterval(() => {
-        setTimeLeft(prev => prev - 1);
-      }, 1000);
-      timerRef.current = interval;
-      
-      if (settings.tickSoundEnabled) tickSound.current?.play();
-    } else if (timeLeft <= 0 && isActive) {
-      completeSession();
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
-      tickSound.current?.stop();
-    }
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      tickSound.current?.stop();
-    };
-  }, [isActive, timeLeft, completeSession, settings.tickSoundEnabled]);
-
-  const handleStart = () => {
+  const handleStart = async () => {
     if (!activeTaskId && mode === 'focus') {
       const title = newTaskTitle.trim() || '专注工作';
-      const id = addTask(title);
-      setActiveTaskId(id);
+      const id = await addTask(title);
+      if (typeof id === 'string') setActiveTaskId(id);
       setNewTaskTitle('');
     }
     
-    if (!isActive) {
-      startTimestampRef.current = Date.now();
-    }
-    
-    setIsActive(prev => !prev);
-    
-    if (settings.notificationsEnabled && Notification.permission !== 'granted') {
-      Notification.requestPermission();
-    }
-  };
-
-  const skipSession = () => {
-    if (confirm('确定要跳过当前时段吗？')) {
-      switchMode(mode === 'focus' ? 'short-break' : 'focus');
-    }
+    if (isActive) pauseTimer();
+    else startTimer();
   };
 
   const totalTime = mode === 'focus' 
@@ -254,12 +124,7 @@ export default function TimerView({
                 </button>
                 
                 <button 
-                  onClick={() => {
-                    setIsActive(false);
-                    if (mode === 'focus') setTimeLeft(settings.focusDuration * 60);
-                    else if (mode === 'short-break') setTimeLeft(settings.shortBreakDuration * 60);
-                    else setTimeLeft(settings.longBreakDuration * 60);
-                  }}
+                  onClick={resetTimer}
                   className="h-16 px-6 rounded-2xl border-2 border-gray-100 text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-all active:scale-95 flex items-center justify-center"
                   title="重置"
                 >
@@ -319,7 +184,7 @@ export default function TimerView({
               <span className="text-xs font-bold uppercase tracking-widest">任务切换 (NEXT)</span>
               <div className="flex gap-2">
                 <button 
-                  onClick={() => {
+                  onClick={async () => {
                    const currentIndex = tasks.findIndex(t => t.id === activeTaskId && !t.completedAt);
                    const availableTasks = tasks.filter(t => !t.completedAt);
                    if (availableTasks.length > 0) {
@@ -327,9 +192,8 @@ export default function TimerView({
                      if (nextTask) {
                        setActiveTaskId(nextTask.id);
                        // Reset timer for new task
-                       setIsActive(false);
-                       setMode('focus');
-                       setTimeLeft(settings.focusDuration * 60);
+                       pauseTimer();
+                       resetTimer();
                      }
                    }
                   }}

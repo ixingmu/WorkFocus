@@ -1,4 +1,5 @@
-import { Volume2, Bell, RefreshCw, Music, Zap, Moon, RotateCcw } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Volume2, Bell, RefreshCw, Music, Zap, Moon, RotateCcw, Upload, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { AppSettings } from '../types';
 
@@ -8,27 +9,58 @@ interface SettingsViewProps {
 }
 
 const ALARM_SOUNDS = [
-  { id: 'classic', name: '经典闹回', icon: Bell },
-  { id: 'digital', name: '数字电子', icon: Zap },
-  { id: 'soft', name: '柔和提醒', icon: Volume2 },
-  { id: 'zen', name: '禅意钟声', icon: Moon },
+  { id: 'classic', name: '经典闹钟', icon: Bell, url: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' },
+  { id: 'digital', name: '数字电子', icon: Zap, url: 'https://assets.mixkit.co/active_storage/sfx/1003/1003-preview.mp3' },
+  { id: 'soft', name: '柔和提醒', icon: Volume2, url: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3' },
+  { id: 'zen', name: '禅意钟声', icon: Moon, url: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3' },
 ];
 
 export default function SettingsView({ settings, onUpdateSettings }: SettingsViewProps) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const stopAndPlay = (url: string) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    const audio = new Audio(url);
+    audio.volume = settings.volume / 100 || 0.5;
+    audioRef.current = audio;
+    audio.play().catch(() => {});
+  };
+
   const handleChange = (key: keyof AppSettings, value: any) => {
     onUpdateSettings({ ...settings, [key]: value });
     
-    // Play sound preview if sound ID changed
     if (key === 'alarmSoundId') {
-      const sounds: any = {
-        classic: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
-        digital: 'https://assets.mixkit.co/active_storage/sfx/1003/1003-preview.mp3',
-        soft: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
-        zen: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
-      };
-      const audio = new Audio(sounds[value]);
-      audio.volume = 0.5;
-      audio.play().catch(() => {});
+      const sound = ALARM_SOUNDS.find(s => s.id === value);
+      if (sound) stopAndPlay(sound.url);
+    }
+  };
+
+  const handleCustomSoundUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('sound', file);
+
+    try {
+      const res = await fetch('/api/sounds/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        handleChange('alarmSoundId', data.path);
+        stopAndPlay(data.path);
+      }
+    } catch (err) {
+      console.error('Upload failed', err);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -43,6 +75,7 @@ export default function SettingsView({ settings, onUpdateSettings }: SettingsVie
         notificationsEnabled: true,
         tickSoundEnabled: false,
         alarmSoundId: 'classic',
+        volume: 50
       });
     }
   };
@@ -117,7 +150,77 @@ export default function SettingsView({ settings, onUpdateSettings }: SettingsVie
         <section className="space-y-6">
           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary border-b border-gray-100 pb-3">交互偏好设置 / INTERACTION</h3>
           <div className="bento-card overflow-hidden divide-y divide-gray-100">
-            {/* Toggle: Sounds */}
+            {/* Volume Control */}
+             <div className="p-8 space-y-4">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <Volume2 className="w-5 h-5 text-gray-400" />
+                  <span className="font-black text-sm uppercase tracking-wider text-gray-400">音量大小 / Volume</span>
+                </div>
+                <span className="text-xl font-black text-primary">{settings.volume || 50}%</span>
+              </div>
+              <input 
+                type="range" min="0" max="100" step="1"
+                value={settings.volume || 50}
+                onChange={(e) => handleChange('volume', parseInt(e.target.value))}
+                className="w-full h-1.5 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-primary"
+              />
+            </div>
+
+            {/* Sound Choice */}
+            <div className="p-8 space-y-6">
+              <div className="flex items-center gap-6 mb-4">
+                <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors">
+                  <Music className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-black text-lg">警报音效 · Alarm Tone</h4>
+                  <p className="text-sm text-gray-400 font-medium">选择内置音频或上传您自己的 MP3/WAV</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {ALARM_SOUNDS.map((sound) => (
+                  <button
+                    key={sound.id}
+                    onClick={() => handleChange('alarmSoundId', sound.id)}
+                    className={cn(
+                      "p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2",
+                      settings.alarmSoundId === sound.id 
+                        ? "border-primary bg-primary/5 text-primary shadow-sm" 
+                        : "border-gray-100 bg-white text-gray-400 hover:border-gray-200"
+                    )}
+                  >
+                    <sound.icon className="w-5 h-5" />
+                    <span className="font-bold text-xs">{sound.name}</span>
+                  </button>
+                ))}
+                
+                {/* Upload Custom Sound */}
+                <label className={cn(
+                  "p-4 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-2 cursor-pointer relative overflow-hidden",
+                  settings.alarmSoundId.startsWith('/uploads') ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-400 hover:border-primary hover:text-primary"
+                )}>
+                  {isUploading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Upload className="w-5 h-5" />
+                  )}
+                  <span className="font-bold text-xs">上传音频</span>
+                  <input 
+                    type="file" 
+                    className="hidden" 
+                    accept="audio/*"
+                    onChange={handleCustomSoundUpload}
+                    disabled={isUploading}
+                  />
+                  {settings.alarmSoundId.startsWith('/uploads') && (
+                    <div className="absolute inset-0 border-2 border-primary pointer-events-none" />
+                  )}
+                </label>
+              </div>
+            </div>
+
+            {/* Toggle Sections */}
             <div className="p-8 flex items-center justify-between hover:bg-gray-50 transition-colors group">
               <div className="flex items-center gap-6">
                 <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors">
@@ -125,7 +228,7 @@ export default function SettingsView({ settings, onUpdateSettings }: SettingsVie
                 </div>
                 <div>
                   <h4 className="font-black text-lg">提示音 · Audio</h4>
-                  <p className="text-sm text-gray-400 font-medium">在每个阶段结束时播放警报声</p>
+                  <p className="text-sm text-gray-400 font-medium">全局开启或关闭提示音效</p>
                 </div>
               </div>
               <button 
@@ -142,37 +245,6 @@ export default function SettingsView({ settings, onUpdateSettings }: SettingsVie
               </button>
             </div>
 
-            {/* Sound Choice */}
-            <div className="p-8 space-y-6">
-              <div className="flex items-center gap-6 mb-4">
-                <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors">
-                  <Music className="w-6 h-6" />
-                </div>
-                <div>
-                  <h4 className="font-black text-lg">警报音效 · Alarm Tone</h4>
-                  <p className="text-sm text-gray-400 font-medium">选择您喜欢的任务结束提示音</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {ALARM_SOUNDS.map((sound) => (
-                  <button
-                    key={sound.id}
-                    onClick={() => handleChange('alarmSoundId', sound.id)}
-                    className={cn(
-                      "p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2",
-                      settings.alarmSoundId === sound.id 
-                        ? "border-primary bg-primary/5 text-primary shadow-sm" 
-                        : "border-gray-100 bg-white text-gray-400 hover:border-gray-200"
-                    )}
-                  >
-                    <sound.icon className="w-5 h-5" />
-                    <span className="font-bold text-xs">{sound.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Toggle: Automatic Breaks */}
             <div className="p-8 flex items-center justify-between hover:bg-gray-50 transition-colors group">
               <div className="flex items-center gap-6">
                 <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors">

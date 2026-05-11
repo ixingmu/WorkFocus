@@ -1,6 +1,7 @@
-import { Timer, ListTodo, BarChart3, Settings, User } from 'lucide-react';
+import { Timer, ListTodo, BarChart3, Settings, User, ShieldCheck, LogOut } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ViewType } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SidebarProps {
   currentView: ViewType;
@@ -8,11 +9,14 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ currentView, setCurrentView }: SidebarProps) {
+  const { user, logout } = useAuth();
+
   const navItems = [
     { id: 'timer', label: '计时器', icon: Timer },
     { id: 'tasks', label: '任务', icon: ListTodo },
     { id: 'statistics', label: '统计', icon: BarChart3 },
     { id: 'settings', label: '设置', icon: Settings },
+    { id: 'admin', label: '系统管理', icon: ShieldCheck },
   ] as const;
 
   return (
@@ -45,11 +49,20 @@ export default function Sidebar({ currentView, setCurrentView }: SidebarProps) {
       </div>
 
       <div className="mt-auto px-2 pt-4 border-t border-gray-100 flex flex-col gap-4">
-        <div className="flex items-center gap-3 py-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group">
-          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200 group-hover:border-primary/30 transition-colors">
-            <User className="w-4 h-4 text-gray-400 group-hover:text-primary transition-colors" />
+        <div className="flex items-center justify-between group">
+           <div className="flex items-center gap-3 py-2 rounded-xl">
+            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200 group-hover:border-primary/30 transition-colors">
+              <User className="w-4 h-4 text-gray-400 group-hover:text-primary transition-colors" />
+            </div>
+            <span className="text-[10px] font-black text-gray-600 font-mono tracking-tighter truncate max-w-[100px]">{user?.phone}</span>
           </div>
-          <span className="text-xs font-bold text-gray-600">Local Space</span>
+          <button 
+            onClick={() => confirm('确定要推出登陆吗？') && logout()}
+            className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+            title="退出登录"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
 
         <div className="pb-4">
@@ -62,7 +75,7 @@ export default function Sidebar({ currentView, setCurrentView }: SidebarProps) {
           >
             青岛赢智库网络科技有限公司
           </a>
-          <p className="text-[10px] text-gray-300 mt-1">Version 1.1.0</p>
+          <p className="text-[10px] text-gray-300 mt-1">Version 1.2.0 Stable</p>
         </div>
       </div>
     </nav>

@@ -29,6 +29,7 @@ export interface AppSettings {
   notificationsEnabled: boolean;
   tickSoundEnabled: boolean;
   alarmSoundId: string;
+  volume: number;
 }
 
-export type ViewType = 'timer' | 'tasks' | 'statistics' | 'settings';
+export type ViewType = 'timer' | 'tasks' | 'statistics' | 'settings' | 'admin';
