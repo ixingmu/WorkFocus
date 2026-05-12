@@ -1,4 +1,5 @@
 import express from "express";
+import "dotenv/config";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -46,7 +47,7 @@ db.exec(`
     auto_start_breaks BOOLEAN DEFAULT 0,
     auto_start_focus BOOLEAN DEFAULT 0,
     sound_enabled BOOLEAN DEFAULT 1,
-    alarm_sound TEXT DEFAULT 'bell',
+    alarm_sound TEXT DEFAULT 'classic',
     volume INTEGER DEFAULT 50,
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
   );
@@ -302,14 +303,19 @@ async function startServer() {
     res.json({ success: true, path: `/uploads/sounds/${req.file.filename}` });
   });
 
-  // Admin API (Simple password check)
   app.post("/api/admin/login", (req, res) => {
     const { password } = req.body;
-    if (password === (process.env.ADMIN_PASSWORD || "admin123")) {
+    // Explicitly trim environment variable to avoid whitespace issues
+    const envPass = process.env.ADMIN_PASSWORD ? process.env.ADMIN_PASSWORD.trim() : null;
+    const adminPass = envPass || "admin123";
+    
+    if (password === adminPass) {
       const token = jwt.sign({ isAdmin: true }, JWT_SECRET, { expiresIn: "1h" });
       res.cookie("admin_token", token, { httpOnly: true });
       return res.json({ success: true });
     }
+    
+    console.log(`Admin login attempt failed. Payload: ${password ? password.substring(0, 2) : 'null'}... Target: ${adminPass.substring(0, 2)}...`);
     res.status(401).json({ error: "Invalid password" });
   });
 

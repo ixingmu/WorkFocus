@@ -15,6 +15,7 @@ import Statistics from './components/Statistics';
 import SettingsView from './components/Settings';
 import Login from './components/Login';
 import AdminView from './components/Admin';
+import MemberCenter from './components/MemberCenter';
 
 export default function App() {
   const { user, loading: authLoading } = useAuth();
@@ -25,6 +26,18 @@ export default function App() {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showLoginModal, setShowLoginModal] = useState(false);
+
+  // Check for admin route on load
+  useEffect(() => {
+    if (window.location.pathname === '/admin') {
+      setCurrentView('admin');
+    }
+    
+    // Listen for login modal request
+    const handleOpenLogin = () => setShowLoginModal(true);
+    window.addEventListener('open-login', handleOpenLogin);
+    return () => window.removeEventListener('open-login', handleOpenLogin);
+  }, []);
 
   // Sync with backend when logged in
   useEffect(() => {
@@ -224,7 +237,10 @@ export default function App() {
             <button className="p-2 rounded-xl hover:bg-white shadow-sm border border-transparent hover:border-gray-200 transition-all text-on-surface-variant hover:text-primary">
               <Bell className="w-5 h-5" />
             </button>
-            <button className="p-2 rounded-xl hover:bg-white shadow-sm border border-transparent hover:border-gray-200 transition-all text-on-surface-variant hover:text-primary">
+            <button 
+              onClick={() => user ? setCurrentView('member') : setShowLoginModal(true)}
+              className="p-2 rounded-xl hover:bg-white shadow-sm border border-transparent hover:border-gray-200 transition-all text-on-surface-variant hover:text-primary"
+            >
               <User className="w-5 h-5" />
             </button>
           </div>
@@ -271,6 +287,9 @@ export default function App() {
           )}
           {currentView === 'admin' && (
             <AdminView />
+          )}
+          {currentView === 'member' && (
+            <MemberCenter />
           )}
         </div>
       </main>

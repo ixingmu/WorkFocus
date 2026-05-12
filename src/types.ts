@@ -25,6 +25,7 @@ export interface AppSettings {
   shortBreakDuration: number;
   longBreakDuration: number;
   autoStartBreaks: boolean;
+  autoStartFocus: boolean;
   soundEnabled: boolean;
   notificationsEnabled: boolean;
   tickSoundEnabled: boolean;
@@ -32,4 +33,4 @@ export interface AppSettings {
   volume: number;
 }
 
-export type ViewType = 'timer' | 'tasks' | 'statistics' | 'settings' | 'admin';
+export type ViewType = 'timer' | 'tasks' | 'statistics' | 'settings' | 'admin' | 'member';

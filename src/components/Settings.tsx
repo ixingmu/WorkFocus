@@ -198,7 +198,7 @@ export default function SettingsView({ settings, onUpdateSettings }: SettingsVie
                 {/* Upload Custom Sound */}
                 <label className={cn(
                   "p-4 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-2 cursor-pointer relative overflow-hidden",
-                  settings.alarmSoundId.startsWith('/uploads') ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-400 hover:border-primary hover:text-primary"
+                  settings.alarmSoundId?.startsWith('/uploads') ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-400 hover:border-primary hover:text-primary"
                 )}>
                   {isUploading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -213,7 +213,7 @@ export default function SettingsView({ settings, onUpdateSettings }: SettingsVie
                     onChange={handleCustomSoundUpload}
                     disabled={isUploading}
                   />
-                  {settings.alarmSoundId.startsWith('/uploads') && (
+                  {settings.alarmSoundId?.startsWith('/uploads') && (
                     <div className="absolute inset-0 border-2 border-primary pointer-events-none" />
                   )}
                 </label>

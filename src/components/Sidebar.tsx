@@ -16,7 +16,6 @@ export default function Sidebar({ currentView, setCurrentView }: SidebarProps) {
     { id: 'tasks', label: '任务', icon: ListTodo },
     { id: 'statistics', label: '统计', icon: BarChart3 },
     { id: 'settings', label: '设置', icon: Settings },
-    { id: 'admin', label: '系统管理', icon: ShieldCheck },
   ] as const;
 
   return (
@@ -50,14 +49,17 @@ export default function Sidebar({ currentView, setCurrentView }: SidebarProps) {
 
       <div className="mt-auto px-2 pt-4 border-t border-gray-100 flex flex-col gap-4">
         <div className="flex items-center justify-between group">
-          <div className="flex items-center gap-3 py-2 rounded-xl">
+          <button 
+            onClick={() => user ? setCurrentView('member') : window.dispatchEvent(new CustomEvent('open-login'))}
+            className="flex items-center gap-3 py-2 rounded-xl text-left"
+          >
             <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200 group-hover:border-primary/30 transition-colors">
               <User className="w-4 h-4 text-gray-400 group-hover:text-primary transition-colors" />
             </div>
             <span className="text-[10px] font-black text-gray-600 font-mono tracking-tighter truncate max-w-[100px]">
               {user ? user.phone : '未登录 (游客)'}
             </span>
-          </div>
+          </button>
           {user && (
             <button 
               onClick={() => confirm('确定要退出登录吗？') && logout()}

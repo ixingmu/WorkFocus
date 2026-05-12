@@ -2,16 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { Howl } from 'howler';
 import confetti from 'canvas-confetti';
 
-interface TimerSettings {
-  focusDuration: number;
-  shortBreakDuration: number;
-  longBreakDuration: number;
-  autoStartBreaks: boolean;
-  autoStartFocus: boolean;
-  soundEnabled: boolean;
-  alarmSound: string;
-  volume: number;
-}
+import { Task, PomodoroSession, AppSettings } from '../types';
 
 interface TimerContextType {
   timeLeft: number;
@@ -19,20 +10,20 @@ interface TimerContextType {
   isActive: boolean;
   mode: 'focus' | 'short-break' | 'long-break';
   currentTaskId: string | null;
-  settings: TimerSettings;
+  settings: AppSettings;
   startTimer: () => void;
   pauseTimer: () => void;
   resetTimer: () => void;
   skipSession: () => void;
   setMode: (mode: 'focus' | 'short-break' | 'long-break') => void;
   setCurrentTaskId: (id: string | null) => void;
-  updateSettings: (newSettings: Partial<TimerSettings>) => void;
+  updateSettings: (newSettings: Partial<AppSettings>) => void;
 }
 
 const TimerContext = createContext<TimerContextType | undefined>(undefined);
 
 export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [settings, setSettings] = useState<TimerSettings>(() => {
+  const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('pomodoro-settings');
     return saved ? JSON.parse(saved) : {
       focusDuration: 25,
@@ -41,7 +32,9 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       autoStartBreaks: false,
       autoStartFocus: false,
       soundEnabled: true,
-      alarmSound: 'bell',
+      notificationsEnabled: true,
+      tickSoundEnabled: false,
+      alarmSoundId: 'classic',
       volume: 50
     };
   });
@@ -117,7 +110,7 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }, 1000);
     } else if (timeLeft === 0) {
       setIsActive(false);
-      playSound(settings.alarmSound);
+      playSound(settings.alarmSoundId);
       if (mode === 'focus') {
         confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
         setMode('short-break');
@@ -144,13 +137,13 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     else setTimeLeft(settings.longBreakDuration * 60);
   };
 
-  const updateSettings = (newSettings: Partial<TimerSettings>) => {
+  const updateSettings = (newSettings: Partial<AppSettings>) => {
     setSettings(prev => ({ ...prev, ...newSettings }));
   };
 
-  const totalTime = mode === 'focus' ? settings.focusDuration * 60 
-    : mode === 'short-break' ? settings.shortBreakDuration * 60 
-    : settings.longBreakDuration * 60;
+  const totalTime = mode === 'focus' ? (settings.focusDuration || 25) * 60 
+    : mode === 'short-break' ? (settings.shortBreakDuration || 5) * 60 
+    : (settings.longBreakDuration || 15) * 60;
   const progress = ((totalTime - timeLeft) / totalTime) * 100;
 
   return (
