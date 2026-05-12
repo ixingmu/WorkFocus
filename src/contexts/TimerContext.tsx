@@ -24,8 +24,7 @@ const TimerContext = createContext<TimerContextType | undefined>(undefined);
 
 export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [settings, setSettings] = useState<AppSettings>(() => {
-    const saved = localStorage.getItem('pomodoro-settings');
-    return saved ? JSON.parse(saved) : {
+    const defaults: AppSettings = {
       focusDuration: 25,
       shortBreakDuration: 5,
       longBreakDuration: 15,
@@ -37,6 +36,12 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       alarmSoundId: 'classic',
       volume: 50
     };
+    try {
+      const saved = localStorage.getItem('pomodoro-settings');
+      return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
+    } catch (e) {
+      return defaults;
+    }
   });
 
   const [mode, setMode] = useState<'focus' | 'short-break' | 'long-break'>('focus');
