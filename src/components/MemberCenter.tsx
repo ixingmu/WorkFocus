@@ -1,12 +1,24 @@
 import React from 'react';
-import { User, Phone, Calendar, LogOut, Shield, Award, Clock, ArrowRight } from 'lucide-react';
+import { User, LogOut, Shield, Award, Clock, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { motion } from 'motion/react';
+import { Task, PomodoroSession } from '../types';
 
-const MemberCenter: React.FC = () => {
+interface MemberCenterProps {
+  tasks: Task[];
+  sessions: PomodoroSession[];
+}
+
+const MemberCenter: React.FC<MemberCenterProps> = ({ tasks, sessions }) => {
   const { user, logout } = useAuth();
 
   if (!user) return null;
+
+  const totalFocusMinutes = sessions
+    .filter(s => s.type === 'focus')
+    .reduce((acc, s) => acc + s.durationMinutes, 0);
+  
+  const totalHours = Math.floor(totalFocusMinutes / 60);
+  const completedTasks = tasks.filter(t => t.completedAt).length;
 
   return (
     <div className="p-4 max-w-5xl mx-auto w-full pb-24 space-y-12">
@@ -55,21 +67,21 @@ const MemberCenter: React.FC = () => {
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bento-card p-8 flex items-center gap-6 group hover:border-primary/30 transition-all">
                 <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-all">
-                  <Clock className="w-7 h-7" />
+                   <Clock className="w-7 h-7" />
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">专注总时长</p>
-                  <h4 className="text-2xl font-black text-gray-900">128 <span className="text-xs font-normal">Hrs</span></h4>
+                  <h4 className="text-2xl font-black text-gray-900">{totalHours} <span className="text-xs font-normal">Hrs</span></h4>
                 </div>
               </div>
 
               <div className="bento-card p-8 flex items-center gap-6 group hover:border-primary/30 transition-all">
                 <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center text-green-500 group-hover:bg-green-500 group-hover:text-white transition-all">
-                  <Award className="w-7 h-7" />
+                   <Award className="w-7 h-7" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">获得勋章</p>
-                  <h4 className="text-2xl font-black text-gray-900">15 <span className="text-xs font-normal">Count</span></h4>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">已完成任务</p>
+                  <h4 className="text-2xl font-black text-gray-900">{completedTasks} <span className="text-xs font-normal">Count</span></h4>
                 </div>
               </div>
            </div>

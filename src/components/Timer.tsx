@@ -55,6 +55,17 @@ export default function TimerView({
 
   const handleStart = async () => {
     if (!activeTaskId && mode === 'focus') {
+      // For logged-in users, try to find an existing incomplete task first
+      if (user) {
+        const firstIncompleteTask = tasks.find(t => !t.completedAt);
+        if (firstIncompleteTask) {
+          setActiveTaskId(firstIncompleteTask.id);
+          startTimer();
+          return;
+        }
+      }
+
+      // If no task found or guest, create/use default
       const title = newTaskTitle.trim() || '专注工作';
       const id = await addTask(title);
       if (typeof id === 'string') setActiveTaskId(id);

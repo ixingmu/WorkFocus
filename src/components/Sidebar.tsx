@@ -1,4 +1,4 @@
-import { Timer, ListTodo, BarChart3, Settings, User, ShieldCheck, LogOut } from 'lucide-react';
+import { Timer, ListTodo, BarChart3, Settings, User, ShieldCheck, LogOut, History } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ViewType } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,15 +14,21 @@ export default function Sidebar({ currentView, setCurrentView }: SidebarProps) {
   const navItems = [
     { id: 'timer', label: '计时器', icon: Timer },
     { id: 'tasks', label: '任务', icon: ListTodo },
+    { id: 'history', label: '历史', icon: History },
     { id: 'statistics', label: '统计', icon: BarChart3 },
     { id: 'settings', label: '设置', icon: Settings },
   ] as const;
 
   return (
     <nav className="bg-white/80 backdrop-blur-3xl h-screen w-64 fixed left-0 top-0 border-r border-gray-200 shadow-sm flex flex-col p-4 gap-2 z-50">
-      <div className="mb-10 px-2 pt-4 flex flex-col gap-1">
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">番茄专注 <span className="text-primary">· Pomodoro</span></h1>
-        <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold">Windows Edition</p>
+      <div className="mb-8 px-2 pt-4 flex items-center gap-3">
+        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden border border-primary/20 shadow-inner">
+          <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight leading-none">番茄专注</h1>
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black mt-1">Focus Flow</p>
+        </div>
       </div>
 
       <div className="flex flex-col gap-1 flex-grow">

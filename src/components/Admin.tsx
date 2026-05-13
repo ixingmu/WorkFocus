@@ -23,7 +23,13 @@ const AdminView: React.FC = () => {
         setIsAuthorized(true);
         fetchUsers();
       } else {
-        setError('密码错误');
+        const errorData = await res.json().catch(() => ({}));
+        console.error('Login failed:', res.status, errorData);
+        if (res.status === 404) {
+          setError('服务器路由未找到 (404)');
+        } else {
+          setError('密码错误');
+        }
       }
     } catch (err) {
       setError('无法连接到服务器');
@@ -36,9 +42,15 @@ const AdminView: React.FC = () => {
     try {
       const res = await fetch('/api/admin/users');
       const data = await res.json();
-      setUsers(data);
+      if (Array.isArray(data)) {
+        setUsers(data);
+      } else {
+        console.error('Expected array of users, got:', data);
+        setUsers([]);
+      }
     } catch (err) {
-      console.error('Failed to fetch users');
+      console.error('Failed to fetch users', err);
+      setUsers([]);
     }
   };
 

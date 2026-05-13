@@ -61,8 +61,8 @@ const Login: React.FC<LoginProps> = ({ isModal, onSkip }) => {
       className={isModal ? "" : "w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl p-10 relative z-10 border border-gray-100"}
     >
       <div className="flex flex-col items-center mb-8">
-        <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20 mb-4">
-          <h1 className="text-3xl font-black text-white">P</h1>
+        <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center p-3 shadow-inner border border-primary/20 mb-4 overflow-hidden">
+          <img src="/logo.png" alt="logo" className="w-full h-full object-contain" />
         </div>
         <h2 className="text-2xl font-black text-gray-900">
           {isModal ? '登录以保存数据' : '番茄专注 · Login'}
@@ -105,7 +105,7 @@ const Login: React.FC<LoginProps> = ({ isModal, onSkip }) => {
               <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300 group-focus-within:text-primary transition-colors" />
               <input 
                 type="text"
-                placeholder="输入验证码 (123456)"
+                placeholder="输入短信验证码"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 disabled={isLoading}
@@ -155,9 +155,10 @@ const Login: React.FC<LoginProps> = ({ isModal, onSkip }) => {
       </form>
 
       {!isModal && (
-        <div className="mt-12 pt-8 border-t border-gray-100 text-center">
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2">Developed By</p>
+        <div className="mt-12 pt-8 border-t border-gray-100 text-center flex flex-col gap-2">
+          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Developed By</p>
           <a href="https://g-2.cn" target="_blank" rel="noopener noreferrer" className="text-xs font-black text-gray-900 hover:text-primary transition-colors">青岛赢智库网络科技有限公司</a>
+          <p className="text-[8px] text-gray-300 font-medium">Build v1.0.2 - Production Mode Opt</p>
         </div>
       )}
     </motion.div>

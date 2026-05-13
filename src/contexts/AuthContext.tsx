@@ -19,8 +19,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Attempt to fetch user profile, but handle potential 401 silently
     fetch('/api/me')
-      .then(res => res.ok ? res.json() : null)
+      .then(res => {
+        if (res.status === 401) return null;
+        return res.ok ? res.json() : null;
+      })
       .then(data => {
         setUser(data);
         setLoading(false);

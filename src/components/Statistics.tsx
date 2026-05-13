@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO, startOfToday } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -10,7 +10,7 @@ interface StatisticsProps {
   sessions: PomodoroSession[];
 }
 
-export default function Statistics({ sessions }: StatisticsProps) {
+const Statistics: React.FC<StatisticsProps> = ({ sessions }) => {
   const [selectedDate, setSelectedDate] = useState(startOfToday());
 
   const weeklyData = useMemo(() => {
@@ -38,6 +38,32 @@ export default function Statistics({ sessions }: StatisticsProps) {
   const totalMinutes = totalFocusTime % 60;
 
   const sessionCount = sessions.filter(s => s.type === 'focus').length;
+
+  const peakPerformance = useMemo(() => {
+    const focusSessions = sessions.filter(s => s.type === 'focus');
+    if (focusSessions.length === 0) return { range: "暂无数据", hours: 0 };
+    
+    const hourCounts: { [key: number]: number } = {};
+    focusSessions.forEach(s => {
+      const hour = new Date(s.startTime).getHours();
+      hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+    });
+    
+    let peakHour = 10;
+    let maxCount = -1;
+    Object.keys(hourCounts).forEach(h => {
+      const hInt = parseInt(h);
+      if (hourCounts[hInt] > maxCount) {
+        maxCount = hourCounts[hInt];
+        peakHour = hInt;
+      }
+    });
+
+    return {
+      range: `${peakHour}:00 - ${peakHour + 2}:00`,
+      hours: peakHour
+    };
+  }, [sessions]);
 
   const filteredSessions = sessions.filter(s => isSameDay(parseISO(s.startTime), selectedDate));
 
@@ -128,7 +154,7 @@ export default function Statistics({ sessions }: StatisticsProps) {
              <span className="text-[10px] font-black uppercase tracking-widest">Efficiency Insight</span>
            </div>
            <p className="text-sm leading-relaxed text-gray-400 font-medium mt-4">
-             您的巅峰表现在 <strong className="text-white">10:00 - 12:00</strong>。建议在此期间处理核心高难度任务。
+             您的巅峰表现在 <strong className="text-white">{peakPerformance.range}</strong>。建议在此期间处理核心高难度任务。
            </p>
            <button className="mt-6 text-[10px] font-black text-primary uppercase tracking-widest hover:underline">
              查看详细洞察
@@ -244,4 +270,6 @@ export default function Statistics({ sessions }: StatisticsProps) {
       </div>
     </div>
   );
-}
+};
+
+export default Statistics;

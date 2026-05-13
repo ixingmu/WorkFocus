@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Timer, MoreVertical, Search, CheckCircle2, GripVertical } from 'lucide-react';
+import { Plus, Timer, X, Search, CheckCircle2, GripVertical } from 'lucide-react';
 import { 
   DndContext, 
   closestCenter,
@@ -22,8 +22,9 @@ import { Task, PomodoroSession } from '../types';
 
 interface TaskListProps {
   tasks: Task[];
-  onAddTask: (title: string, expected: number) => void;
+  onAddTask: (title: string, expected: number, date?: string) => void;
   onToggleTask: (id: string) => void;
+  onDeleteTask: (id: string) => void;
   onStartTask: (id: string) => void;
   sessions: PomodoroSession[];
   onUpdateOrder: (tasks: Task[]) => void;
@@ -32,11 +33,12 @@ interface TaskListProps {
 interface SortableItemProps {
   task: Task;
   onToggleTask: (id: string) => void;
+  onDeleteTask: (id: string) => void;
   onStartTask: (id: string) => void;
   key?: string;
 }
 
-function SortableTaskItem({ task, onToggleTask, onStartTask }: SortableItemProps) {
+function SortableTaskItem({ task, onToggleTask, onDeleteTask, onStartTask }: SortableItemProps) {
   const {
     attributes,
     listeners,
@@ -85,8 +87,17 @@ function SortableTaskItem({ task, onToggleTask, onStartTask }: SortableItemProps
             <GripVertical className="w-4 h-4" />
           </div>
         </div>
-        <div className="bg-gray-50 px-3 py-1 rounded-full text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-          {task.pomodoros}/{task.expectedPomodoros} 番茄
+        <div className="flex items-center gap-2">
+          <div className="bg-gray-50 px-3 py-1 rounded-full text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+            {task.pomodoros}/{task.expectedPomodoros} 番茄
+          </div>
+          <button 
+            onClick={(e) => { e.stopPropagation(); onDeleteTask(task.id); }}
+            className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all"
+            title="删除任务"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       </div>
       
@@ -117,10 +128,11 @@ function SortableTaskItem({ task, onToggleTask, onStartTask }: SortableItemProps
   );
 }
 
-export default function TaskList({ tasks, onAddTask, onToggleTask, onStartTask, onUpdateOrder }: TaskListProps) {
+export default function TaskList({ tasks, onAddTask, onToggleTask, onDeleteTask, onStartTask, sessions, onUpdateOrder }: TaskListProps) {
   const [search, setSearch] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split('T')[0]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -148,8 +160,9 @@ export default function TaskList({ tasks, onAddTask, onToggleTask, onStartTask, 
 
   const handleAdd = () => {
     if (newTaskTitle.trim()) {
-      onAddTask(newTaskTitle, 1);
+      onAddTask(newTaskTitle, 1, scheduledDate);
       setNewTaskTitle('');
+      setScheduledDate(new Date().toISOString().split('T')[0]);
       setIsAdding(false);
     }
   };
@@ -208,6 +221,41 @@ export default function TaskList({ tasks, onAddTask, onToggleTask, onStartTask, 
                   onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
                   className="w-full bg-white/10 border border-white/20 rounded-2xl px-6 py-4 text-white text-xl font-bold placeholder-white/40 focus:outline-none focus:ring-4 ring-white/10"
                 />
+                
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-widest opacity-60">计划日期 / SCHEDULE FOR</span>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setScheduledDate(new Date().toISOString().split('T')[0])}
+                      className={cn(
+                        "px-4 py-2 rounded-xl text-xs font-bold transition-all",
+                        scheduledDate === new Date().toISOString().split('T')[0] ? "bg-white text-primary" : "bg-white/10 hover:bg-white/20 text-white"
+                      )}
+                    >
+                      今天
+                    </button>
+                    <button 
+                      onClick={() => {
+                        const tomorrow = new Date();
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        setScheduledDate(tomorrow.toISOString().split('T')[0]);
+                      }}
+                      className={cn(
+                        "px-4 py-2 rounded-xl text-xs font-bold transition-all",
+                        scheduledDate === new Date(Date.now() + 86400000).toISOString().split('T')[0] ? "bg-white text-primary" : "bg-white/10 hover:bg-white/20 text-white"
+                      )}
+                    >
+                      明天
+                    </button>
+                    <input 
+                      type="date"
+                      value={scheduledDate}
+                      onChange={(e) => setScheduledDate(e.target.value)}
+                      className="bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 ring-white/20"
+                    />
+                  </div>
+                </div>
+
                 <div className="flex justify-end gap-3">
                   <button 
                     onClick={(e) => { e.stopPropagation(); setIsAdding(false); }}
@@ -242,6 +290,7 @@ export default function TaskList({ tasks, onAddTask, onToggleTask, onStartTask, 
                     key={task.id} 
                     task={task} 
                     onToggleTask={onToggleTask}
+                    onDeleteTask={onDeleteTask}
                     onStartTask={onStartTask} 
                   />
                 ))}

@@ -2,18 +2,12 @@ import React, { useRef, useState } from 'react';
 import { Volume2, Bell, RefreshCw, Music, Zap, Moon, RotateCcw, Upload, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { AppSettings } from '../types';
+import { ALARM_SOUNDS } from '../constants';
 
 interface SettingsViewProps {
   settings: AppSettings;
   onUpdateSettings: (settings: AppSettings) => void;
 }
-
-const ALARM_SOUNDS = [
-  { id: 'classic', name: '经典闹钟', icon: Bell, url: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' },
-  { id: 'digital', name: '数字电子', icon: Zap, url: 'https://assets.mixkit.co/active_storage/sfx/1003/1003-preview.mp3' },
-  { id: 'soft', name: '柔和提醒', icon: Volume2, url: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3' },
-  { id: 'zen', name: '禅意钟声', icon: Moon, url: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3' },
-];
 
 export default function SettingsView({ settings, onUpdateSettings }: SettingsViewProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -71,6 +65,7 @@ export default function SettingsView({ settings, onUpdateSettings }: SettingsVie
         shortBreakDuration: 5,
         longBreakDuration: 15,
         autoStartBreaks: true,
+        autoStartFocus: true,
         soundEnabled: true,
         notificationsEnabled: true,
         tickSoundEnabled: false,
@@ -268,6 +263,30 @@ export default function SettingsView({ settings, onUpdateSettings }: SettingsVie
                 )} />
               </button>
             </div>
+
+            <div className="p-8 flex items-center justify-between hover:bg-gray-50 transition-colors group">
+              <div className="flex items-center gap-6">
+                <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors">
+                  <RotateCcw className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-black text-lg">自动开始专注 · Auto-Focus</h4>
+                  <p className="text-sm text-gray-400 font-medium">休息结束后自动开始新的专注时段</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => handleChange('autoStartFocus', !settings.autoStartFocus)}
+                className={cn(
+                  "w-14 h-7 rounded-full relative transition-all duration-300",
+                  settings.autoStartFocus ? "bg-primary" : "bg-gray-200"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-1 w-5 h-5 rounded-full bg-white transition-all duration-300 shadow-sm",
+                  settings.autoStartFocus ? "left-8" : "left-1"
+                )} />
+              </button>
+            </div>
           </div>
         </section>
         
@@ -275,8 +294,8 @@ export default function SettingsView({ settings, onUpdateSettings }: SettingsVie
         <section className="space-y-6">
           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary border-b border-gray-100 pb-3">关于与版本 / ABOUT & VERSION</h3>
           <div className="bento-card p-10 flex flex-col items-center text-center space-y-6 bg-gradient-to-b from-white to-gray-50/50">
-            <div className="w-20 h-20 rounded-[2rem] bg-primary/10 flex items-center justify-center p-5 shadow-inner">
-               <h1 className="text-4xl font-black text-primary">P</h1>
+            <div className="w-20 h-20 rounded-[2rem] bg-primary/10 flex items-center justify-center p-4 shadow-inner overflow-hidden border border-primary/10">
+               <img src="/logo.png" alt="Logo" className="w-14 h-14 object-contain" />
             </div>
             <div className="space-y-2">
               <h4 className="text-2xl font-black text-gray-900">番茄专注 · Pomodoro</h4>

@@ -16,6 +16,7 @@ import SettingsView from './components/Settings';
 import Login from './components/Login';
 import AdminView from './components/Admin';
 import MemberCenter from './components/MemberCenter';
+import HistoryView from './components/History';
 
 export default function App() {
   const { user, loading: authLoading } = useAuth();
@@ -45,8 +46,9 @@ export default function App() {
       const fetchData = async () => {
         setIsLoading(true);
         try {
+          const today = new Date().toISOString().split('T')[0];
           const [tasksRes, sessionsRes, settingsRes] = await Promise.all([
-            fetch('/api/tasks'),
+            fetch(`/api/tasks?date=${today}`),
             fetch('/api/sessions'),
             fetch('/api/settings')
           ]);
@@ -54,7 +56,7 @@ export default function App() {
           if (sessionsRes.ok) setSessions(await sessionsRes.json());
           if (settingsRes.ok) {
             const remoteSettings = await settingsRes.json();
-            updateSettings(remoteSettings);
+            updateSettings(remoteSettings, false);
           }
         } catch (err) {
           console.error('Failed to fetch user data');
@@ -64,11 +66,30 @@ export default function App() {
       };
       fetchData();
     } else {
-      // Load from localStorage for guest
+      // Load and filter for today for guest
+      const today = new Date().toISOString().split('T')[0];
       const savedTasks = localStorage.getItem('pomodoro-guest-tasks');
       const savedSessions = localStorage.getItem('pomodoro-guest-sessions');
-      if (savedTasks) setTasks(JSON.parse(savedTasks));
-      if (savedSessions) setSessions(JSON.parse(savedSessions));
+      
+      if (savedTasks) {
+        const allTasks = JSON.parse(savedTasks);
+        setTasks(allTasks.filter((t: Task) => {
+          const isToday = t.createdAt.startsWith(today);
+          const isUncompleted = !t.completedAt;
+          return isToday || isUncompleted;
+        }).map((t: Task) => {
+          // Reset progress for carried over tasks
+          const isPastUncompleted = !t.completedAt && !t.createdAt.startsWith(today);
+          if (isPastUncompleted) {
+            return { ...t, pomodoros: 0, progress: 0 };
+          }
+          return t;
+        }));
+      }
+      if (savedSessions) {
+        const allSessions = JSON.parse(savedSessions);
+        setSessions(allSessions.filter((s: PomodoroSession) => s.startTime.startsWith(today)));
+      }
       setIsLoading(false);
     }
   }, [user]);
@@ -82,19 +103,20 @@ export default function App() {
   }, [tasks, sessions, user]);
 
   // Actions with Backend Sync
-  const addTask = async (title: string, expectedPomodoros: number = 1) => {
+  const addTask = async (title: string, expectedPomodoros: number = 1, date?: string) => {
     if (!user && !showLoginModal) {
       setShowLoginModal(true);
     }
 
     const newTaskData = {
       title,
-      createdAt: new Date().toISOString(),
+      createdAt: date ? `${date}T00:00:00.000Z` : new Date().toISOString(),
       completedAt: null,
       pomodoros: 0,
       expectedPomodoros,
       progress: 0,
       order: tasks.length,
+      date // Pass to server
     };
 
     if (user) {
@@ -105,7 +127,12 @@ export default function App() {
           body: JSON.stringify(newTaskData)
         });
         const savedTask = await res.json();
-        setTasks(prev => [savedTask, ...prev]);
+        
+        // If it's for today or incomplete, add to current state
+        const today = new Date().toISOString().split('T')[0];
+        if (!date || date === today) {
+          setTasks(prev => [savedTask, ...prev]);
+        }
         return savedTask.id;
       } catch (err) {
         console.error('Failed to save task');
@@ -114,7 +141,16 @@ export default function App() {
     
     // Guest fallback
     const guestTask: Task = { ...newTaskData, id: crypto.randomUUID() };
-    setTasks(prev => [guestTask, ...prev]);
+    const today = new Date().toISOString().split('T')[0];
+    if (!date || date === today) {
+      setTasks(prev => [guestTask, ...prev]);
+    }
+    
+    // Save to guest storage
+    const savedTasks = localStorage.getItem('pomodoro-guest-tasks');
+    const allTasks = savedTasks ? JSON.parse(savedTasks) : [];
+    localStorage.setItem('pomodoro-guest-tasks', JSON.stringify([...allTasks, guestTask]));
+    
     return guestTask.id;
   };
 
@@ -148,6 +184,21 @@ export default function App() {
       });
     } catch (err) {
       console.error('Failed to toggle completion');
+    }
+  };
+
+  const deleteTask = async (id: string) => {
+    setTasks(prev => prev.filter(t => t.id !== id));
+    if (activeTaskId === id) setActiveTaskId(null);
+
+    if (user) {
+      try {
+        await fetch(`/api/tasks/${id}`, {
+          method: 'DELETE'
+        });
+      } catch (err) {
+        console.error('Failed to delete task');
+      }
     }
   };
 
@@ -220,15 +271,22 @@ export default function App() {
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[100px] pointer-events-none z-0" />
         
         <header className="h-14 mb-6 flex justify-between items-end relative z-10 shrink-0">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900">
-              {currentView === 'timer' && '番茄专注 · Pomodoro'}
-              {currentView === 'tasks' && '我的任务 · Tasks'}
-              {currentView === 'statistics' && '每周进展 · Stats'}
-              {currentView === 'settings' && '系统设置 · Settings'}
-              {currentView === 'admin' && '后台管理 · Admin'}
-            </h2>
-            <p className="text-gray-500 text-sm mt-1">Windows 桌面增强版 / 高效任务管理系统</p>
+          <div className="flex items-center gap-4">
+            <div className="md:hidden w-10 h-10 rounded-xl bg-primary/10 p-1 border border-primary/20">
+               <img src="/logo.png" alt="logo" className="w-full h-full object-contain" />
+            </div>
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight text-gray-900">
+                {currentView === 'timer' && '专注空间'}
+                {currentView === 'tasks' && '我的任务'}
+                {currentView === 'history' && '历史记录'}
+                {currentView === 'statistics' && '数据统计'}
+                {currentView === 'settings' && '偏好设置'}
+                {currentView === 'admin' && '管理控制台'}
+                {currentView === 'member' && '个人中心'}
+              </h2>
+              <p className="text-gray-500 text-sm mt-1">专注当下，成就未来</p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right mr-4 hidden md:block">
@@ -271,6 +329,7 @@ export default function App() {
               tasks={tasks} 
               onAddTask={addTask} 
               onToggleTask={toggleTaskCompletion}
+              onDeleteTask={deleteTask}
               sessions={sessions}
               onUpdateOrder={setTasks}
               onStartTask={(id) => {
@@ -278,6 +337,9 @@ export default function App() {
                 setCurrentView('timer');
               }}
             />
+          )}
+          {currentView === 'history' && (
+            <HistoryView />
           )}
           {currentView === 'statistics' && (
             <Statistics sessions={sessions} />
@@ -289,7 +351,7 @@ export default function App() {
             <AdminView />
           )}
           {currentView === 'member' && (
-            <MemberCenter />
+            <MemberCenter tasks={tasks} sessions={sessions} />
           )}
         </div>
       </main>

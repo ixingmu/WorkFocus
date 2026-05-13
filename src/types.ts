@@ -33,4 +33,4 @@ export interface AppSettings {
   volume: number;
 }
 
-export type ViewType = 'timer' | 'tasks' | 'statistics' | 'settings' | 'admin' | 'member';
+export type ViewType = 'timer' | 'tasks' | 'statistics' | 'settings' | 'admin' | 'member' | 'history';
