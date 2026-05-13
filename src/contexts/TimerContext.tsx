@@ -17,9 +17,11 @@ interface TimerContextType {
   pauseTimer: () => void;
   resetTimer: () => void;
   skipSession: () => void;
+  stopAlarm: () => void;
   setMode: (mode: 'focus' | 'short-break' | 'long-break') => void;
   setCurrentTaskId: (id: string | null) => void;
   updateSettings: (newSettings: Partial<AppSettings>, syncWithServer?: boolean) => void;
+  isAlarmRinging: boolean;
 }
 
 const TimerContext = createContext<TimerContextType | undefined>(undefined);
@@ -52,9 +54,11 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isActive, setIsActive] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isAlarmRinging, setIsAlarmRinging] = useState(false);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const soundRef = useRef<Howl | null>(null);
+  const alarmTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
   // Persistence across refreshes
@@ -129,11 +133,12 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [settings.volume]);
 
-  const playSound = useCallback((soundName: string) => {
+  const playSound = useCallback((soundName: string, loop: boolean = false) => {
     if (!settings.soundEnabled) return;
     
     // Stop previous sound
     if (soundRef.current) soundRef.current.stop();
+    if (alarmTimeoutRef.current) clearTimeout(alarmTimeoutRef.current);
 
     const soundUrl = soundName.startsWith('/uploads') ? soundName : (ALARM_SOUNDS.find(s => s.id === soundName)?.url || '/sounds/bell.mp3');
     
@@ -143,14 +148,34 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     soundRef.current = new Howl({
       src: [soundUrl],
       volume: settings.volume / 100,
+      loop: loop,
       onloaderror: () => console.warn('Sound file not found, using procedural fallback'),
       onplayerror: (id, err) => {
         console.error('Audio play error:', err);
         if (isActive) window.alert('专注时间到！');
       }
     });
+
     soundRef.current.play();
+
+    if (loop) {
+      setIsAlarmRinging(true);
+      // Auto-stop after 1 minute
+      alarmTimeoutRef.current = setTimeout(() => {
+        stopAlarm();
+      }, 60000);
+    }
   }, [settings.soundEnabled, settings.volume, isActive, playProceduralBeep]);
+
+  const stopAlarm = useCallback(() => {
+    if (soundRef.current) {
+      soundRef.current.stop();
+    }
+    if (alarmTimeoutRef.current) {
+      clearTimeout(alarmTimeoutRef.current);
+    }
+    setIsAlarmRinging(false);
+  }, []);
 
   // Request notification permission early
   useEffect(() => {
@@ -191,7 +216,7 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }, 1000);
     } else if (timeLeft === 0 && isInitialized) {
       setIsActive(false);
-      playSound(settings.alarmSoundId);
+      playSound(settings.alarmSoundId, true);
       
       const message = mode === 'focus' ? '完成专注！休息一下吧。' : '休息结束，开始专注。';
       sendNotification('番茄专注', message);
@@ -258,8 +283,8 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   return (
     <TimerContext.Provider value={{
-      timeLeft, progress, isActive, mode, currentTaskId, settings,
-      startTimer, pauseTimer, resetTimer, skipSession, setMode, setCurrentTaskId, updateSettings
+      timeLeft, progress, isActive, mode, currentTaskId, settings, isAlarmRinging,
+      startTimer, pauseTimer, resetTimer, skipSession, stopAlarm, setMode, setCurrentTaskId, updateSettings
     }}>
       {children}
     </TimerContext.Provider>

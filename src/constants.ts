@@ -1,13 +1,13 @@
 import { Bell, Zap, Volume2, Moon, Music, Wind, Coffee, Headphones, Sun } from 'lucide-react';
 
 export const ALARM_SOUNDS = [
-  { id: 'classic', name: '经典闹钟', icon: Bell, url: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' },
-  { id: 'digital', name: '数字电子', icon: Zap, url: 'https://assets.mixkit.co/active_storage/sfx/1003/1003-preview.mp3' },
-  { id: 'soft', name: '清晨鸟鸣', icon: Volume2, url: 'https://assets.mixkit.co/active_storage/sfx/1070/1070-preview.mp3' },
-  { id: 'zen', name: '禅意钟声', icon: Moon, url: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3' },
-  { id: 'synth', name: '电子合成', icon: Music, url: 'https://assets.mixkit.co/active_storage/sfx/2526/2526-preview.mp3' },
-  { id: 'droplet', name: '悦耳水滴', icon: Wind, url: 'https://assets.mixkit.co/active_storage/sfx/2513/2513-preview.mp3' },
-  { id: 'harp', name: '优雅竖琴', icon: Coffee, url: 'https://assets.mixkit.co/active_storage/sfx/1110/1110-preview.mp3' },
-  { id: 'uplift', name: '轻快音效', icon: Headphones, url: 'https://assets.mixkit.co/active_storage/sfx/2534/2534-preview.mp3' },
-  { id: 'space', name: '太空幻想', icon: Sun, url: 'https://assets.mixkit.co/active_storage/sfx/2530/2530-preview.mp3' },
+  { id: 'security', name: '安防警报', icon: Bell, url: '/sounds/mixkit-security-facility-breach-alarm-994.wav' },
+  { id: 'facility', name: '设施警报', icon: Bell, url: '/sounds/mixkit-facility-alarm-sound-999.wav' },
+  { id: 'alert', name: '紧急提醒', icon: Zap, url: '/sounds/mixkit-alert-alarm-1005.wav' },
+  { id: 'rooster', name: '清晨鸡鸣', icon: Volume2, url: '/sounds/mixkit-rooster-crowing-in-the-morning-2462.wav' },
+  { id: 'casino', name: '金币大奖', icon: Music, url: '/sounds/mixkit-casino-win-alarm-and-coins-1990.wav' },
+  { id: 'marimba-wait', name: '马林巴等待', icon: Headphones, url: '/sounds/mixkit-marimba-waiting-ringtone-1360.wav' },
+  { id: 'marimba', name: '马林巴铃声', icon: Headphones, url: '/sounds/mixkit-marimba-ringtone-1359.wav' },
+  { id: 'clown', name: '小丑喇叭', icon: Sun, url: '/sounds/mixkit-clown-horn-at-circus-715.wav' },
+  { id: 'children', name: '童声倒计', icon: Coffee, url: '/sounds/mixkit-children-happy-countdown-923.wav' },
 ];

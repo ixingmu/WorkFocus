@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './contexts/AuthContext';
 import { useTimer } from './contexts/TimerContext';
 import { Task, PomodoroSession, ViewType } from './types';
+import { VolumeX, AlarmClock } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import TimerView from './components/Timer';
 import TaskList from './components/TaskList';
@@ -20,7 +21,7 @@ import HistoryView from './components/History';
 
 export default function App() {
   const { user, loading: authLoading } = useAuth();
-  const { settings, updateSettings } = useTimer();
+  const { settings, updateSettings, isAlarmRinging, stopAlarm } = useTimer();
   const [currentView, setCurrentView] = useState<ViewType>('timer');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [sessions, setSessions] = useState<PomodoroSession[]>([]);
@@ -234,6 +235,40 @@ export default function App() {
   return (
     <div className="flex h-screen bg-background text-on-surface overflow-hidden selection:bg-primary selection:text-on-primary">
       <Sidebar currentView={currentView} setCurrentView={setCurrentView} />
+      
+      {/* Alarm Overlay */}
+      <AnimatePresence>
+        {isAlarmRinging && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-primary/20 backdrop-blur-xl">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-[3rem] p-12 shadow-2xl border border-primary/20 flex flex-col items-center gap-8 max-w-sm w-full text-center"
+            >
+              <div className="relative">
+                <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl animate-pulse" />
+                <div className="w-24 h-24 rounded-full bg-primary text-white flex items-center justify-center relative animate-bounce">
+                  <AlarmClock className="w-12 h-12" />
+                </div>
+              </div>
+              
+              <div>
+                <h2 className="text-3xl font-black text-gray-900 mb-2">时间到了！</h2>
+                <p className="text-gray-500 font-medium">任务环节已结束</p>
+              </div>
+
+              <button 
+                onClick={stopAlarm}
+                className="w-full bg-primary text-white py-6 rounded-3xl font-black text-xl shadow-lg shadow-primary/30 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3"
+              >
+                <VolumeX className="w-6 h-6" />
+                停止闹钟
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Login Modal */}
       <AnimatePresence>

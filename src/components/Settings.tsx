@@ -37,6 +37,12 @@ export default function SettingsView({ settings, onUpdateSettings }: SettingsVie
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // 2MB Limit
+    if (file.size > 2 * 1024 * 1024) {
+      alert('音频文件大小不能超过 2MB');
+      return;
+    }
+
     setIsUploading(true);
     const formData = new FormData();
     formData.append('sound', file);
@@ -50,9 +56,12 @@ export default function SettingsView({ settings, onUpdateSettings }: SettingsVie
       if (data.success) {
         handleChange('alarmSoundId', data.path);
         stopAndPlay(data.path);
+      } else {
+        alert(data.error || '上传失败');
       }
     } catch (err) {
       console.error('Upload failed', err);
+      alert('网络错误，请稍后重试');
     } finally {
       setIsUploading(false);
     }

@@ -50,7 +50,10 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + "-" + file.originalname);
   }
 });
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 } // 2MB limit
+});
 
 async function startServer() {
   const app = express();
@@ -377,9 +380,20 @@ async function startServer() {
   });
 
   // Sound Upload
-  app.post("/api/sounds/upload", authenticate, upload.single("sound"), (req: any, res) => {
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-    res.json({ success: true, path: `/uploads/sounds/${req.file.filename}` });
+  app.post("/api/sounds/upload", authenticate, (req: any, res: any) => {
+    upload.single("sound")(req, res, (err: any) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: "文件大小不能超过 2MB" });
+        }
+        return res.status(400).json({ error: err.message });
+      } else if (err) {
+        return res.status(500).json({ error: "上传失败" });
+      }
+
+      if (!req.file) return res.status(400).json({ error: "未选择文件" });
+      res.json({ success: true, path: `/uploads/sounds/${req.file.filename}` });
+    });
   });
 
   // --- ADMIN ROUTES ---
